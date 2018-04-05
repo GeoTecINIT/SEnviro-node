@@ -41,13 +41,7 @@
  Weather sensor;
  FuelGauge fuel;
 
- //TODO
- //{0x28, 0x6F, 0xD1, 0x5E, 0x06, 0x00, 0x00, 0x76};//Waterproof temp sensor address
- /***********REPLACE THIS ADDRESS WITH YOUR ADDRESS*************/
- DeviceAddress inSoilThermometer = {0x40, 0x60};
-
- //Global Variables
- //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+ DeviceAddress inSoilThermometer = {0x28, 0x1A, 0x6, 0xAA, 0x8, 0x0, 0x0, 0x81};
 
  long lastSecond; //The millis counter to see when a second rolls by
  byte seconds; //When it hits 60, increase the current minute
@@ -59,19 +53,11 @@
  String SEnviroID = System.deviceID();
  String dateutc = "";
 
- //We need to keep track of the following variables:
- //Wind speed/dir each update (no storage)
- //Wind gust/dir over the day (no storage)
- //Wind speed/dir, avg over 2 minutes (store 1 per second)
- //Wind gust/dir over last 10 minutes (store 1 per minute)
- //Rain over the past hour (store 1 per minute)
- //Total rain over date (store one per day)
-
  byte windspdavg[120]; //120 bytes to keep track of 2 minute average
  int winddiravg[120]; //120 ints to keep track of 2 minute average
  float windgust_10m[10]; //10 floats to keep track of 10 minute max
  int windgustdirection_10m[10]; //10 ints to keep track of 10 minute max
- volatile float rainHour[60]; //60 floating numbers to keep track of 60 minutes of rain
+ //volatile float rainHour[60]; //60 floating numbers to keep track of 60 minutes of rain
 
  //These are all the weather values that wunderground expects:
  int winddir = 0; // [0-360 instantaneous wind direction]
@@ -123,8 +109,8 @@
 
    if (raininterval > 10) // ignore switch-bounce glitches less than 10mS after initial edge
    {
-     dailyrainin += 0.011; //Each dump is 0.011" of water
-     rainHour[minutes] += 0.011; //Increase this minute's amount of rain
+     dailyrainin += 0.2794; //Each dump is 0.011" of water
+     //rainHour[minutes] += 0.2794; //Increase this minute's amount of rain
      rainlast = raintime; // set up for next event
    }
  }
@@ -142,7 +128,6 @@
  //---------------------------------------------------------------
  void setup()
  {
-
      Particle.keepAlive(120);
      mqtt_connect();
      //Particle.variable("data", data);
@@ -261,7 +246,7 @@
        if(++minutes > 59) minutes = 0;
        if(++minutes_10m > 9) minutes_10m = 0;
 
-       rainHour[minutes] = 0; //Zero out this minute's rainfall amount
+       //rainHour[minutes] = 0; //Zero out this minute's rainfall amount
        windgust_10m[minutes_10m] = 0; //Zero out this minute's gust
      }
 
@@ -298,7 +283,7 @@
 
    publishObs("AirTemperature",tempc);
    publishObs("Humidity",humidity);
-   publishObs("Precipitation",rainin);
+   publishObs("Precipitation",dailyrainin);
    publishObs("WindDirection",winddir);
    publishObs("WindSpeed",windspeedmph);
    publishObs("AtmosphericPressure",pascals/100);
@@ -345,7 +330,7 @@
      if(InTempC < -100)
        soiltempf = soiltempf;//push last value so data isn't out of scope
      else
-       soiltempf = (InTempC * 9)/5 + 32;//else grab the newest, good data
+       soiltempf = InTempC ;//soiltempf = (InTempC * 9)/5 + 32;//else grab the newest, good data
  }
  //---------------------------------------------------------------
  void getSoilMositure()
@@ -375,21 +360,12 @@
  int get_wind_direction()
  {
    unsigned int adc;
+   adc = analogRead(WDIR);
 
-   adc = analogRead(WDIR); // get the current reading from the sensor
-
-   // The following table is ADC readings for the wind direction sensor output, sorted from low to high.
-   // Each threshold is the midpoint between adjacent headings. The output is degrees for that ADC reading.
-   // Note that these are not in compass degree order! See Weather Meters datasheet for more information.
-
-   //Wind Vains may vary in the values they return. To get exact wind direction,
-   //it is recomended that you AnalogRead the Wind Vain to make sure the values
-   //your wind vain output fall within the values listed below.
    if(adc > 2270 && adc < 2290) return (0);//North
    if(adc > 3220 && adc < 3299) return (1);//NE
    if(adc > 3890 && adc < 3999) return (2);//East
    if(adc > 3780 && adc < 3850) return (3);//SE
-
    if(adc > 3570 && adc < 3650) return (4);//South
    if(adc > 2790 && adc < 2850) return (5);//SW
    if(adc > 1580 && adc < 1610) return (6);//West
@@ -404,7 +380,6 @@
  float get_wind_speed()
  {
    float deltaTime = millis() - lastWindCheck; //750ms
-
    deltaTime /= 1000.0; //Covert to seconds
 
    float windSpeed = (float)windClicks / deltaTime; //3 / 0.750s = 4
@@ -480,7 +455,6 @@
 
      //Total rainfall for the day is calculated within the interrupt
      //Calculate amount of rainfall for the last 60 minutes
-     rainin = 0;
-     for(int i = 0 ; i < 60 ; i++)
-       rainin += rainHour[i];
+     dailyrainin = 0;
+
  }
