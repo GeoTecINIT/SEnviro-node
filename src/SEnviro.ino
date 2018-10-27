@@ -62,7 +62,7 @@ State state = RECOLLECT_STATE;
 Energy energy = NORMAL_MODE;
 
 int SLEEP_PERIOD = 530;
-static unsigned long lastSleep =    0 ;
+static unsigned long lastSleep =  0 ;
 
 unsigned int timer;
 Weather sensor;
@@ -70,18 +70,14 @@ FuelGauge fuel;
 
 long lastSecond; //The millis counter to see when a second rolls by
 byte seconds; //When it hits 60, increase the current minute
-byte seconds_2m; //Keeps track of the "wind speed/dir avg" over last 2 minutes array of data
 byte minutes; //Keeps track of where we are in various arrays of data
-byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 minutes array of data
 
 String SEnviroID = System.deviceID();
 String dateutc = "";
 
 //These are all the weather values that wunderground expects:
 int winddir = 0; // [0-360 instantaneous wind direction]
-float windspeedmph = 0; // [mph instantaneous wind speed]
-float windgustmph = 0; // [mph current wind gust, using software specific time period]
-int windgustdir = 0; // [0-360 using software specific time period]
+float windspeedkmh = 0; // [mph instantaneous wind speed]
 
 float rainin = 0; // [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
 long lastWindCheck = 0;
@@ -96,7 +92,6 @@ float pascals = 0;
 int soilMoisture = 0;
 
 bool bUpdate = FALSE;
-int count = 599;
 
 int ObsStored = 0;
 
@@ -366,15 +361,12 @@ void publishLastStored(){
 //---------------------------------------------------------------
 void updateMode()
 {
-  //Serial.println("UpdateSubscribe");
   String sAux = "/update/" + SEnviroID ;
-  //Serial.println(sAux);
   client.subscribe(sAux , MQTT::QOS1);
 }
 
 //---------------------------------------------------------------
 void callback(char* topic, byte* payload, unsigned int length) {
-  //Serial.println("callback");
   char p[length + 1];
   memcpy(p, payload, length);
   p[length] = NULL;
@@ -389,7 +381,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 //--------------------------------------------------------------
 void storeEEPROM()
 {
-  storeObser observa = {dateutc, tempc, humidity, rainin, winddir, windspeedmph, pascals/100, soiltempf, soilMoisture, fuel.getSoC()};
+  storeObser observa = {dateutc, tempc, humidity, rainin, winddir, windspeedkmh, pascals/100, soiltempf, soilMoisture, fuel.getSoC()};
   EEPROM.put(ObsStored * sizeof(storeObser), observa);
   ObsStored += 1;
 }
@@ -401,7 +393,7 @@ void publish()
   publishObs("current","Humidity",humidity,dateutc);
   publishObs("current","Precipitation",rainin,dateutc);
   publishObs("current","WindDirection",winddir,dateutc);
-  publishObs("current","WindSpeed",windspeedmph,dateutc);
+  publishObs("current","WindSpeed",windspeedkmh,dateutc);
   publishObs("current","AtmosphericPressure",pascals/100,dateutc);
   publishObs("current","SoilTemperature",soiltempf,dateutc);
   publishObs("current","SoilHumidity",soilMoisture,dateutc);
@@ -418,19 +410,18 @@ void publishObs(String sMoment, String sTopic, float fObs, String sTime)
   sObs += "}";
 
   String sAux = "/"+sMoment+"/" + SEnviroID + "/" + sTopic;
-
+  /*
   Serial.println("Topic: ");
   Serial.println(sAux);
   Serial.println("Data: ");
   Serial.println(String(sObs));
-
+  */
   client.publish( sAux , String(sObs));
 }
 
 //---------------------------------------------------------------
 void getSoilTemp()
 {
-  //get temp from DS18B20
   sensors.requestTemperatures();
 
   if (SEnviroID.equals("4e0022000251353337353037")) {
@@ -494,20 +485,19 @@ int get_wind_direction()
   if(adc > 1580 && adc < 1610) return (6);//West
   if(adc > 1930 && adc < 1950) return (7);//NW
 
-  return (-1); // error, disconnected?
+  return (-1);
 }
 
 //---------------------------------------------------------------
 float get_wind_speed()
 {
-  windClicks = 0; //Reset and start watching for new wind
+  windClicks = 0;
   lastWindCheck = millis();
   delay(30000);
-  float deltaTime = millis() - lastWindCheck; //750ms
-  deltaTime /= 1000.0; //Covert to seconds
-  float windSpeed = (float)windClicks / deltaTime; //3 / 0.750s = 4
-  //windSpeed *= 1.492; //4 * 1.492 = 5.968MPH
-  windSpeed *= 2.4; //kmh
+  float deltaTime = millis() - lastWindCheck;
+  deltaTime /= 1000.0;
+  float windSpeed = (float)windClicks / deltaTime;
+  windSpeed *= 2.4;
 
   return(windSpeed);
 }
@@ -519,17 +509,14 @@ void getWeather()
   humidity = sensor.getRH();
   tempf = sensor.getTempF();
   tempc = sensor.getTemp();
-
   pascals = sensor.readPressure();
 
-  getSoilTemp();//Read the DS18B20 waterproof temp sensor
-  getSoilMositure();//Read the soil moisture sensor
+  getSoilTemp();
+  getSoilMositure();
 
   winddir = get_wind_direction();
-  windspeedmph = get_wind_speed();
+  windspeedkmh = get_wind_speed();
 
-  //Total rainfall for the day is calculated within the interrupt
-  //Calculate amount of rainfall for the last 60 minutes
   rainin = dailyrainin;
   dailyrainin = 0;
 }
