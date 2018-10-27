@@ -108,8 +108,6 @@ void update18B20Temp(DeviceAddress deviceAddress, double &tempC);//predeclare to
 
 //---------------------------------------------------------------
 void rainIRQ()
-// Count rain gauge bucket tips as they occur
-// Activated by the magnet and reed switch in the rain gauge, attached to input D2
 {
   raintime = millis(); // grab current time
   raininterval = raintime - rainlast; // calculate interval between this and last event
@@ -125,12 +123,11 @@ void rainIRQ()
 
 //---------------------------------------------------------------
 void wspeedIRQ()
-// Activated by the magnet in the anemometer (2 ticks per rotation), attached to input D3
 {
-  if (millis() - lastWindIRQ > 10) // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
+  if (millis() - lastWindIRQ > 10)
   {
-    lastWindIRQ = millis(); //Grab the current time
-    windClicks++; //There is 1.492MPH for each click per second.
+    lastWindIRQ = millis();
+    windClicks++;
   }
 }
 
@@ -229,11 +226,11 @@ void loop()
     {
       Serial.println("ENERGY");
 
-      if (fuel.getSoC() > 15)
+      if (fuel.getSoC() > 25)
       {
         energy = NORMAL_MODE;
       }
-      else if (fuel.getSoC() > 5)
+      else if (fuel.getSoC() > 15)
       {
         energy = RECOVERY_MODE;
       }
@@ -330,7 +327,7 @@ void loop()
       }
       else
       {
-        System.sleep(SLEEP_MODE_DEEP, SLEEP_PERIOD*3, SLEEP_NETWORK_STANDBY);
+        System.sleep(SLEEP_MODE_DEEP, SLEEP_PERIOD*6);
       }
 
       state = ENERGY_STATE;
